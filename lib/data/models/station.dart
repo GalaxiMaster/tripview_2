@@ -1,11 +1,12 @@
 enum StopType {
   train(1),
-  metro(2),
-  lightRail(4),
-  bus(5),
-  coach(7),
-  ferry(9),
-  schoolBus(11);
+  metro(401),
+  lightRail(900),
+  bus(714),
+  ferry(4),
+  regionalTrains(106),
+  regionalCoaches(204),
+  temporaryCoaches(205);
 
   const StopType(this.value);
   final int value;
@@ -21,9 +22,21 @@ enum StopType {
     StopType.metro     => 'Metro',
     StopType.lightRail => 'Light Rail',
     StopType.bus       => 'Bus',
-    StopType.coach     => 'Coach',
     StopType.ferry     => 'Ferry',
-    StopType.schoolBus => 'School Bus',
+    StopType.regionalTrains => 'Regional Trains',
+    StopType.temporaryCoaches => 'Temporary Coaches',
+    StopType.regionalCoaches => 'Regional Coaches',
+  };
+
+  int get bitOp => switch (this) {
+    StopType.train => 1,
+    StopType.metro => 32,
+    StopType.lightRail => 512,
+    StopType.bus => 256,
+    StopType.ferry => 2,
+    StopType.regionalTrains => 4,
+    StopType.temporaryCoaches => 8,
+    StopType.regionalCoaches => 16,
   };
 }
 
@@ -32,14 +45,12 @@ class Station {
   final String   stopName;
   final double   stopLat;
   final double   stopLon;
-  final StopType type;
 
   const Station({
     required this.stopId,
     required this.stopName,
     required this.stopLat,
     required this.stopLon,
-    required this.type,
   });
 
   factory Station.fromRow(Map<String, Object?> row) => Station(
@@ -47,6 +58,5 @@ class Station {
     stopName: row['stop_name'] as String,
     stopLat: row['stop_lat']  as double,
     stopLon: row['stop_lon']  as double,
-    type: StopType.fromInt(row['type'] as int),
   );
 }

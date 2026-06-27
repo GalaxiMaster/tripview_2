@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tripview_2/data/databases/station_db.dart';
-import 'package:tripview_2/data/models/station.dart';
-import 'package:tripview_2/pages/station_list.dart';
+import 'package:tripview_2/pages/home_page.dart';
 
 void main() async{
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,15 +15,7 @@ class MainApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       home: Scaffold(
-        body: FutureBuilder(
-          future: StationDB.instance.getStops(type: StopType.train),
-          builder: (context, future) {
-            if (future.connectionState == ConnectionState.waiting) {
-              return CircularProgressIndicator();
-            }
-            return StationListPage(stations: future.data!);
-          }
-        )
+        body: HomePage()
       ),
     );
   }
