@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:tripview_2/data/databases/station_db.dart';
 import 'package:tripview_2/data/databases/user_settings.dart';
 import 'package:tripview_2/data/models/station.dart';
 import 'package:tripview_2/data/models/trip.dart';
@@ -27,13 +26,11 @@ class ChooseRoute extends StatelessWidget {
                   );
                   if (route != null) {
                     debugPrint('${route.start}, ${route.end}');
-                    final List<Trip> trips = await StationDB.instance.getTripsBetween(route.start!.stopId, route.end!.stopId);
                     if (!context.mounted) return;
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => RouteList(
-                          tripEntries: trips,
+                        builder: (context) => TripList(
                           trip: route,
                         )
                       )

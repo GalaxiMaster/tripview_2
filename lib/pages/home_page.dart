@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:tripview_2/data/databases/station_db.dart';
 import 'package:tripview_2/data/databases/user_settings.dart';
 import 'package:tripview_2/data/models/trip.dart';
 import 'package:tripview_2/pages/choose_route.dart';
@@ -37,14 +36,11 @@ class HomePageState extends State<HomePage> {
               itemBuilder: (context, index) {
                 final UserTrip trip = savedTrips[index];
                 return GestureDetector(
-                  onTap: () async {
-                    final List<Trip> trips = await StationDB.instance.getTripsBetween(trip.start!.stopId, trip.end!.stopId);
-                    if (!context.mounted) return;
+                  onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => RouteList(
-                          tripEntries: trips, 
+                        builder: (context) => TripList(
                           trip: trip
                         )
                       )
