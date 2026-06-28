@@ -41,10 +41,10 @@ enum StopType {
 }
 
 class Station {
-  final String   stopId;    // TEXT — may be "222010" or "G2077181"
-  final String   stopName;
-  final double   stopLat;
-  final double   stopLon;
+  final String stopId;    // TEXT — may be "222010" or "G2077181"
+  final String stopName;
+  final double stopLat;
+  final double stopLon;
 
   const Station({
     required this.stopId,
@@ -59,4 +59,5 @@ class Station {
     stopLat: row['stop_lat']  as double,
     stopLon: row['stop_lon']  as double,
   );
+  
 }

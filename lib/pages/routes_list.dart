@@ -56,8 +56,8 @@ class RouteListState extends State<RouteList> {
       appBar: AppBar(
         title: Column(
           children: [
-            Text(widget.trip.startId!),
-            Text(widget.trip.endId!),
+            Text(widget.trip.start!.stopName),
+            Text(widget.trip.end!.stopName),
           ],
         ),
       ),

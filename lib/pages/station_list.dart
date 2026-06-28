@@ -79,7 +79,7 @@ class StationListPageState extends State<StationListPage> {
                         '${s.stopName} • ${s.stopLat.toStringAsFixed(4)}, ${s.stopLon.toStringAsFixed(4)}',
                       ),
                       onTap: () {
-                        final res = currentTrip.addPart(s.stopId);
+                        final res = currentTrip.addPart(s);
                         currentTrip = res.trip;
                         if (currentTrip.isComplete) {
                           Navigator.pop(context, currentTrip);

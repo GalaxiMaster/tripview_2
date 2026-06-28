@@ -1,31 +1,33 @@
+import 'package:tripview_2/data/models/station.dart';
+
 class UserTrip {
-  final String? startId;
-  final String? endId;
-  UserTrip({this.startId, this.endId});
+  final Station? start;
+  final Station? end;
+  UserTrip({this.start, this.end});
   
   UserTrip copyWith({
-    String? startId,
-    String? endId,
+    Station? start,
+    Station? end,
   }) {
     return UserTrip(
-      startId: startId ?? this.startId, 
-      endId: endId ?? this.endId
+      start: start ?? this.start, 
+      end: end ?? this.end
     );
   }
 
-  ({UserTrip trip, bool isComplete}) addPart(String id) {
-    if (startId == null) {
-      final newTrip = UserTrip(startId: id);
+  ({UserTrip trip, bool isComplete}) addPart(Station id) {
+    if (start == null) {
+      final newTrip = UserTrip(start: id);
       return (trip: newTrip, isComplete: false);
-    } else if (endId == null) {
-      final newTrip = UserTrip(startId: startId, endId: id);
+    } else if (end == null) {
+      final newTrip = UserTrip(start: start, end: id);
       return (trip: newTrip, isComplete: true);
     } else {
       return (trip: this, isComplete: true);
     }
   }
 
-  bool get isComplete => startId != null && endId != null;
+  bool get isComplete => start != null && end != null;
 }
 
 class Trip {
