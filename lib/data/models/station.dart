@@ -1,3 +1,7 @@
+import 'package:hive_flutter/hive_flutter.dart';
+
+part 'station.g.dart';
+
 enum StopType {
   train(1),
   metro(401),
@@ -40,13 +44,14 @@ enum StopType {
   };
 }
 
-class Station {
-  final String stopId;    // TEXT — may be "222010" or "G2077181"
-  final String stopName;
-  final double stopLat;
-  final double stopLon;
+@HiveType(typeId: 1)
+class Station extends HiveObject{
+  @HiveField(0) late String stopId;    // TEXT — may be "222010" or "G2077181"
+  @HiveField(1) late String stopName;
+  @HiveField(2) late double stopLat;
+  @HiveField(3) late double stopLon;
 
-  const Station({
+  Station({
     required this.stopId,
     required this.stopName,
     required this.stopLat,
@@ -59,5 +64,5 @@ class Station {
     stopLat: row['stop_lat']  as double,
     stopLon: row['stop_lon']  as double,
   );
-  
+
 }

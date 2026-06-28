@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:tripview_2/data/databases/station_db.dart';
+import 'package:tripview_2/data/databases/user_settings.dart';
+import 'package:tripview_2/data/models/trip.dart';
 import 'package:tripview_2/pages/choose_route.dart';
+import 'package:tripview_2/pages/trip_list.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -8,6 +12,7 @@ class HomePage extends StatefulWidget {
 }
 
 class HomePageState extends State<HomePage> {
+  late List<UserTrip> savedTrips = SavedTrips.instance.getTrips();
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -24,6 +29,30 @@ class HomePageState extends State<HomePage> {
                 );
               },
               child: Expanded(child: Text('New Trip')),
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              itemCount: savedTrips.length,
+              itemBuilder: (context, index) {
+                final UserTrip trip = savedTrips[index];
+                return GestureDetector(
+                  onTap: () async {
+                    final List<Trip> trips = await StationDB.instance.getTripsBetween(trip.start!.stopId, trip.end!.stopId);
+                    if (!context.mounted) return;
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => RouteList(
+                          tripEntries: trips, 
+                          trip: trip
+                        )
+                      )
+                    );
+                  },
+                  child: Text('${trip.start!.stopName} -> ${trip.end!.stopName}'),
+                );
+              }
             ),
           )
         ],

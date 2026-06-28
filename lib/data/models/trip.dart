@@ -1,8 +1,12 @@
+import 'package:hive_flutter/adapters.dart';
 import 'package:tripview_2/data/models/station.dart';
 
-class UserTrip {
-  final Station? start;
-  final Station? end;
+part 'trip.g.dart';
+
+@HiveType(typeId: 0)
+class UserTrip extends HiveObject{
+  @HiveField(0) late Station? start;
+  @HiveField(1) late Station? end;
   UserTrip({this.start, this.end});
   
   UserTrip copyWith({

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:tripview_2/data/databases/station_db.dart';
+import 'package:tripview_2/data/databases/user_settings.dart';
 import 'package:tripview_2/data/models/station.dart';
 import 'package:tripview_2/data/models/trip.dart';
-import 'package:tripview_2/pages/routes_list.dart';
+import 'package:tripview_2/pages/trip_list.dart';
 import 'package:tripview_2/pages/station_list.dart';
 
 class ChooseRoute extends StatelessWidget {
@@ -32,11 +33,12 @@ class ChooseRoute extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (context) => RouteList(
-                          tripEntries: trips.toList(),
+                          tripEntries: trips,
                           trip: route,
                         )
                       )
                     );
+                    SavedTrips.instance.addTrip(route);
                     // debugPrint(res.first.toString());
                     // debugPrint((await StationDB.instance.getTripStops(res.first['trip_id']!)).toString());
                   }

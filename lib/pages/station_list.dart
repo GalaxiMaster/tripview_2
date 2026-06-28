@@ -70,21 +70,28 @@ class StationListPageState extends State<StationListPage> {
 
                 return ListView.builder(
                   itemCount: stations.length,
-                  itemExtent: 65.0,
                   itemBuilder: (context, index) {
                     final Station s = stations[index];
-                    return ListTile(
-                      title: Text(s.stopName, maxLines: 1, overflow: TextOverflow.ellipsis),
-                      subtitle: Text(
-                        '${s.stopName} • ${s.stopLat.toStringAsFixed(4)}, ${s.stopLon.toStringAsFixed(4)}',
+                    if (currentTrip.start == s) {
+                      return SizedBox.shrink();
+                    }
+                    return SizedBox(
+                      height: 65,
+                      child: ListTile(
+                        title: Text(s.stopName, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        subtitle: Text(
+                          '${s.stopName} • ${s.stopLat.toStringAsFixed(4)}, ${s.stopLon.toStringAsFixed(4)}',
+                        ),
+                        onTap: () {
+                          final res = currentTrip.addPart(s);
+                          setState(() {
+                            currentTrip = res.trip;
+                          });
+                          if (currentTrip.isComplete) {
+                            Navigator.pop(context, currentTrip);
+                          }
+                        },
                       ),
-                      onTap: () {
-                        final res = currentTrip.addPart(s);
-                        currentTrip = res.trip;
-                        if (currentTrip.isComplete) {
-                          Navigator.pop(context, currentTrip);
-                        }
-                      },
                     );
                   },
                 );
