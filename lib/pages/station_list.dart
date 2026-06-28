@@ -14,7 +14,7 @@ class StationListPage extends StatefulWidget {
 class StationListPageState extends State<StationListPage> {
   late Future<List<Station>> stationsFuture;
   final TextEditingController _searchController = TextEditingController();
-  Trip currentTrip = Trip();
+  UserTrip currentTrip = UserTrip();
 
   @override
   void initState() {
