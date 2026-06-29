@@ -1,8 +1,8 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:tripview_2/data/databases/station_db.dart';
 import 'package:tripview_2/data/models/trip.dart';
+import 'package:tripview_2/data/realtime.dart';
 
 class TripList extends StatefulWidget {
   final UserTrip trip;
@@ -13,13 +13,13 @@ class TripList extends StatefulWidget {
 }
 
 class TripListState extends State<TripList> {
-  late final ScrollController _controller;
+  ScrollController _controller = ScrollController();
   late final int _firstFutureIndex;
   static const double _itemHeight = 60;
   TimeOfDay now = TimeOfDay.now();
   late Timer _timer;
   late final Future<List<Trip>> tripsFuture;
-
+  Map<String, TripRealtimeData> delays = {};
   @override
   void initState() {
     super.initState();
@@ -41,6 +41,13 @@ class TripListState extends State<TripList> {
         ? _firstFutureIndex * _itemHeight
         : 0.0,
     );
+    getRealTimeData(trips);
+  }
+  void getRealTimeData(List<Trip> trips) async {
+    final delaysVal = await RealtimeService().getRealtimeForTrips(trips.map((trip) => trip.tripId).toSet());
+    setState(() {
+      delays = delaysVal;
+    });
   }
 
   @override
@@ -86,7 +93,9 @@ class TripListState extends State<TripList> {
               final m = int.parse(parts[1]);
               final diff = (h*60 - now.hour*60 + m - now.minute);
               final isPast = diff < 0;
-          
+
+              final rt = delays[trip.tripId];
+
               return SizedBox(
                 height: _itemHeight,
                 child: Row(
@@ -100,17 +109,32 @@ class TripListState extends State<TripList> {
                         !isPast ? '${diff.abs()} mins' : '${diff.abs()} mins ago'
                       )),
                     ),
-                    Row(
-                      spacing: 20,
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          trip.departTime,
-                          style: TextStyle(color: isPast ? Colors.grey : null),
+                        Row(
+                          spacing: 20,
+                          children: [
+                            Text(
+                              trip.departTime,
+                              style: TextStyle(color: isPast ? Colors.grey : null),
+                            ),
+                            Text(
+                              trip.arriveTime,
+                              style: TextStyle(color: isPast ? Colors.grey : null),
+                            ),
+                          ],
                         ),
                         Text(
-                          trip.arriveTime,
-                          style: TextStyle(color: isPast ? Colors.grey : null),
-                        ),
+                          rt == null
+                            ? 'Real time data unavailable'
+                            : rt.isCancelled
+                              ? 'Cancelled'
+                              : rt.stopDelays[widget.trip.start?.stopId] != null
+                                ? '${rt.stopDelays[widget.trip.start!.stopId]! ~/ 60} mins late'
+                                : 'On Time'
+                        )
                       ],
                     ),
                   ],
