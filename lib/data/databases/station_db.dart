@@ -1,8 +1,10 @@
 import 'dart:io';
+import 'dart:isolate';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:tripview_2/data/models/journey.dart';
 import 'package:tripview_2/data/models/station.dart';
 import 'package:tripview_2/data/models/stop.dart';
 import 'package:tripview_2/data/models/trip.dart';
@@ -27,7 +29,9 @@ class StationDB extends _$StationDB {
 
     if (true) { // !await File(dbPath).exists()
       final bytes = await decompressGZip('gtfs.db');
-      await File(dbPath).writeAsBytes(bytes, flush: true);
+      await Isolate.run(() async {
+        await File(dbPath).writeAsBytes(bytes, flush: true);
+      });
     }
 
     _instance = StationDB._(
@@ -75,50 +79,134 @@ class StationDB extends _$StationDB {
   }
 
   Future<List<Trip>> getTripsBetween(
-    String parentStationA,
-    String parentStationB,
+    String parentA,
+    String parentB,
+    Set<String> activeServiceIds,
   ) async {
-    final now = DateTime.now();
-    final today = '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
-    final dayColumn = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'][now.weekday - 1];
+    if (activeServiceIds.isEmpty) return [];
+    final placeholders = activeServiceIds.map((_) => '?').join(',');
 
     final rows = await customSelect('''
-      SELECT t.*, depart.depart_time, arrive.arrive_time
+      SELECT t.*,
+            depart.depart_time,
+            arrive.arrive_time
       FROM trips t
-      JOIN (
-        SELECT service_id FROM calendar
-        WHERE $dayColumn = 1
-          AND start_date <= ?
-          AND end_date   >= ?
-        UNION
-        SELECT service_id FROM calendar_dates
-        WHERE date = ? AND exception_type = 1
-      ) svc ON svc.service_id = t.service_id
       JOIN (
         SELECT trip_id, MIN(departure_time) AS depart_time
         FROM stop_times
-        WHERE stop_id IN (SELECT stop_id FROM stops WHERE parent_station = ?)
+        WHERE parent_station = ?
         GROUP BY trip_id
       ) depart ON depart.trip_id = t.trip_id
       JOIN (
         SELECT trip_id, MIN(arrival_time) AS arrive_time
         FROM stop_times
-        WHERE stop_id IN (SELECT stop_id FROM stops WHERE parent_station = ?)
+        WHERE parent_station = ?
         GROUP BY trip_id
       ) arrive ON arrive.trip_id = t.trip_id
       WHERE depart.depart_time < arrive.arrive_time
-        AND t.service_id NOT IN (
-          SELECT service_id FROM calendar_dates
-          WHERE date = ? AND exception_type = 2
-        )
+        AND t.service_id IN ($placeholders)
       ORDER BY depart.depart_time
     ''', variables: [
-      Variable(today), Variable(today), Variable(today),
-      Variable(parentStationA), Variable(parentStationB),
-      Variable(today),
+      Variable(parentA),
+      Variable(parentB),
+      ...activeServiceIds.map(Variable.new),
     ]).get();
 
     return rows.map((r) => Trip.fromRow(r.data)).toList();
+  }
+
+  Future<Set<String>> getActiveServiceIds() async {
+    final now = DateTime.now();
+    final today = '${now.year}${now.month.toString().padLeft(2,'0')}${now.day.toString().padLeft(2,'0')}';
+    final dayCol = ['monday','tuesday','wednesday','thursday',
+                    'friday','saturday','sunday'][now.weekday - 1];
+
+    final rows = await customSelect('''
+      SELECT service_id FROM calendar
+      WHERE $dayCol = 1 AND start_date <= ? AND end_date >= ?
+      UNION
+      SELECT service_id FROM calendar_dates
+      WHERE date = ? AND exception_type = 1
+      EXCEPT
+      SELECT service_id FROM calendar_dates
+      WHERE date = ? AND exception_type = 2
+    ''', variables: [
+      Variable(today), Variable(today),
+      Variable(today), Variable(today),
+    ]).get();
+
+    return rows.map((r) => r.data['service_id'] as String).toSet();
+  }
+
+  Future<List<Journey>> getJourneysBetween(
+    String parentA,
+    String parentB,
+  ) async {
+    final activeIds = await getActiveServiceIds();
+
+    // Direct first
+    final direct = await getTripsBetween(parentA, parentB, activeIds);
+    if (direct.isNotEmpty) {
+      return direct.map((t) => Journey(legs: [t], interchangeNames: [])).toList();
+    }
+
+    // Only get neighbours that can actually reach B
+    final neighbours = await customSelect('''
+      SELECT a1.to_station
+      FROM station_adjacency a1
+      JOIN station_adjacency a2
+        ON a2.from_station = a1.to_station
+        AND a2.to_station = ?
+      WHERE a1.from_station = ?
+    ''', variables: [Variable(parentB), Variable(parentA)]).get();
+
+    final candidates = <String, Journey>{}; // key = leg1.tripId
+
+    for (final row in neighbours) {
+      final mid = row.data['to_station'] as String;
+      if (mid == parentA || mid == parentB) continue;
+
+      final leg1List = await getTripsBetween(parentA, mid, activeIds);
+      final leg2List = await getTripsBetween(mid, parentB, activeIds);
+      if (leg1List.isEmpty || leg2List.isEmpty) continue;
+
+      for (final leg1 in leg1List) {
+        final bestLeg2 = leg2List
+            .where((t) => _canConnect(leg1.arriveTime, t.departTime, minMins: 3))
+            .fold<Trip?>(null, (best, t) {
+              if (best == null) return t;
+              return _parseGtfsTime(t.arriveTime) < _parseGtfsTime(best.arriveTime)
+                  ? t
+                  : best;
+            });
+
+        if (bestLeg2 == null) continue;
+
+        final existing = candidates[leg1.tripId];
+        if (existing == null ||
+            _parseGtfsTime(bestLeg2.arriveTime) <
+            _parseGtfsTime(existing.legs.last.arriveTime)) {
+          candidates[leg1.tripId] = Journey(
+            legs: [leg1, bestLeg2],
+            interchangeNames: [mid],
+          );
+        }
+      }
+    }
+
+    return candidates.values.toList()
+      ..sort((a, b) => a.departTime.compareTo(b.departTime));
+  }
+  int _parseGtfsTime(String t) {
+    final p = t.split(':');
+    return int.parse(p[0]) * 3600 + int.parse(p[1]) * 60 + int.parse(p[2]);
+  }
+
+  bool _canConnect(String arrive, String depart, {required int minMins}) {
+    final a = _parseGtfsTime(arrive);
+    var d = _parseGtfsTime(depart);
+    if (d < a) d += 86400;
+    return d - a >= minMins * 60;
   }
 
   Future<List<Stop>> getTripStops(String tripId) async {

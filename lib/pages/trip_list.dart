@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:tripview_2/data/databases/station_db.dart';
+import 'package:tripview_2/data/models/journey.dart';
 import 'package:tripview_2/data/models/trip.dart';
 import 'package:tripview_2/data/realtime.dart';
 
@@ -18,7 +19,7 @@ class TripListState extends State<TripList> {
   static const double _itemHeight = 60;
   TimeOfDay now = TimeOfDay.now();
   late Timer _timer;
-  late final Future<List<Trip>> tripsFuture;
+  late final Future<List<Journey>> tripsFuture;
   Map<String, TripRealtimeData> delays = {};
   @override
   void initState() {
@@ -27,7 +28,7 @@ class TripListState extends State<TripList> {
     _scheduleNextTick();
   }
   void getTrips() async{
-    tripsFuture = StationDB.instance.getTripsBetween(widget.trip.start!.stopId, widget.trip.end!.stopId);
+    tripsFuture = StationDB.instance.getJourneysBetween(widget.trip.start!.stopId, widget.trip.end!.stopId);
     final trips = await tripsFuture;
     _firstFutureIndex = trips.indexWhere((trip) {
       final parts = trip.departTime.split(':');
@@ -43,8 +44,8 @@ class TripListState extends State<TripList> {
     );
     getRealTimeData(trips);
   }
-  void getRealTimeData(List<Trip> trips) async {
-    final delaysVal = await RealtimeService().getRealtimeForTrips(trips.map((trip) => trip.tripId).toSet());
+  void getRealTimeData(List<Journey> trips) async { 
+    final delaysVal = await RealtimeService().getRealtimeForTrips(trips.map((trip) => trip.legs.first.tripId).toSet()); // todo only does first leg
     setState(() {
       delays = delaysVal;
     });
@@ -57,9 +58,15 @@ class TripListState extends State<TripList> {
     super.dispose();
   }
   void _scheduleNextTick() {
-    _timer = Timer(Duration(seconds: 60 - DateTime.now().second), () {
+    _timer = Timer(Duration(seconds: 60 - DateTime.now().second), () async {
       if (!mounted) return;
-      setState(() => now = TimeOfDay.now());
+      final timeOfDay = TimeOfDay.now();
+      if (now.compareTo(timeOfDay) > 1) {
+        getTrips();
+      } else {
+        getRealTimeData(await tripsFuture);
+      }
+      setState(() => now = timeOfDay);
       _scheduleNextTick();
     });
   }
@@ -94,7 +101,7 @@ class TripListState extends State<TripList> {
               final diff = (h*60 - now.hour*60 + m - now.minute);
               final isPast = diff < 0;
 
-              final rt = delays[trip.tripId];
+              final rt = delays[trip.legs.first.tripId];
 
               return SizedBox(
                 height: _itemHeight,
