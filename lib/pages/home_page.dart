@@ -11,7 +11,6 @@ class HomePage extends StatefulWidget {
 }
 
 class HomePageState extends State<HomePage> {
-  late List<UserTrip> savedTrips = SavedTrips.instance.getTrips();
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -27,26 +26,36 @@ class HomePageState extends State<HomePage> {
                   MaterialPageRoute(builder: (context) => ChooseRoute()),
                 );
               },
-              child: Expanded(child: Text('New Trip')),
+              child: Text('New Trip'),
             ),
           ),
           Expanded(
-            child: ListView.builder(
-              itemCount: savedTrips.length,
-              itemBuilder: (context, index) {
-                final UserTrip trip = savedTrips[index];
-                return GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => TripList(
-                          trip: trip
-                        )
-                      )
+            child: StreamBuilder<List<UserTrip>>(
+              stream: SavedTrips.instance.watchSavedTrips(),
+              builder: (context, snapshot) {
+                final savedTrips = snapshot.data;
+                if (snapshot.connectionState == ConnectionState.waiting) return CircularProgressIndicator();
+                if (savedTrips == null || savedTrips.isEmpty) {
+                  return SizedBox.shrink();
+                }
+                return ListView.builder(
+                  itemCount: savedTrips.length,
+                  itemBuilder: (context, index) {
+                    final UserTrip trip = savedTrips[index];
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => TripList(
+                              trip: trip
+                            )
+                          )
+                        );
+                      },
+                      child: Text('${trip.start!.stopName} -> ${trip.end!.stopName}'),
                     );
-                  },
-                  child: Text('${trip.start!.stopName} -> ${trip.end!.stopName}'),
+                  }
                 );
               }
             ),

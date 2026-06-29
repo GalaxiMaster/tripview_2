@@ -1,75 +1,67 @@
 import 'dart:io';
+import 'package:drift/drift.dart';
+import 'package:drift/native.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:sqlite3/sqlite3.dart';
 import 'package:tripview_2/data/models/station.dart';
 import 'package:tripview_2/data/models/stop.dart';
 import 'package:tripview_2/data/models/trip.dart';
 import 'package:tripview_2/tools.dart';
 
-class StationDB {
-  StationDB._();
-  static final StationDB instance = StationDB._();
+part 'station_db.g.dart';
 
-  Database? _db;
+@DriftDatabase()
+class StationDB extends _$StationDB {
+  StationDB._(super.e);
 
-  Future<void> open() async {
-    if (_db != null) return;
+  static StationDB? _instance;
+  static StationDB get instance => _instance!;
 
+  @override
+  int get schemaVersion => 1;
+
+  static Future<void> init() async {
+    if (_instance != null) return;
     final dir = await getApplicationSupportDirectory();
-    final dbPath = join(dir.path, 'stops.db');
+    final dbPath = join(dir.path, 'gtfs.db');
 
     if (true) { // !await File(dbPath).exists()
-      final bytes = await decompressGZip('stops.db');
+      final bytes = await decompressGZip('gtfs.db');
       await File(dbPath).writeAsBytes(bytes, flush: true);
     }
 
-    _db = sqlite3.open(dbPath, mode: OpenMode.readOnly);
-    final Map dbs = {
-      'st_db': 'stop_times.db',
-      'trips_db': 'trips.db',
-      'routes_db': 'routes.db',
-      'cal_db': 'calendar.db',
-      'cal_dates_db': 'calendar_dates.db',
-    };
-    for (final MapEntry db in dbs.entries) {  
-      final dbPath = join(dir.path, db.value);
-
-      if (true) { // !await File(dbPath).exists()
-        final bytes = await decompressGZip(db.value);
-        await File(dbPath).writeAsBytes(bytes, flush: true);
-      }
-      _db?.execute("ATTACH DATABASE '$dbPath' AS ${db.key}");
-    }
-  }
-
-  Future<Database> get _database async {
-    await open();
-    return _db!;
-  }
-  // Queries
-  Future<List<Station>> getStops({StopType? type, int limit = 200}) async {
-    final db = await _database;
-    final typeClause = type != null ? 'WHERE transport_modes & ${type.bitOp} != 0 AND location_type = 1' : '';
-    final rows = db.select(
-      'SELECT * FROM stops $typeClause ORDER BY stop_name LIMIT $limit',
+    _instance = StationDB._(
+      NativeDatabase.createInBackground(
+        File(dbPath),
+        setup: (db) {
+          db.execute('PRAGMA journal_mode=WAL');
+        },
+      ),
     );
-    return rows.map(Station.fromRow).toList();
+  }
+
+  Future<List<Station>> getStops({StopType? type, int limit = 200}) async {
+    final typeClause = type != null
+        ? 'WHERE transport_modes & ${type.bitOp} != 0 AND location_type = 1'
+        : '';
+    final rows = await customSelect(
+      'SELECT * FROM stops $typeClause ORDER BY stop_name LIMIT $limit',
+    ).get();
+    return rows.map((r) => Station.fromRow(r.data)).toList();
   }
 
   Future<List<Station>> searchStops({
     required String query,
     StopType? type,
     int limit = 100,
-  }) async{
+  }) async {
     if (query.trim().isEmpty) return getStops(type: type, limit: limit);
-    final db = await _database;
 
     final typeClause = type != null
         ? 'AND transport_modes & ${type.bitOp} != 0 AND location_type = 1'
         : '';
 
-    final rows = db.select('''
+    final rows = await customSelect('''
       SELECT * FROM stops
       WHERE rowid IN (
         SELECT rowid FROM stops_fts WHERE stops_fts MATCH ?
@@ -77,55 +69,60 @@ class StationDB {
       $typeClause
       ORDER BY stop_name
       LIMIT $limit
-    ''', ['${query.trim()}*']);
+    ''', variables: [Variable('${query.trim()}*')]).get();
 
-    return rows.map(Station.fromRow).toList();
+    return rows.map((r) => Station.fromRow(r.data)).toList();
   }
-  Future<List<Trip>> getTripsBetween(String parentStationA, String parentStationB) async{
-    final db = await _database;
+
+  Future<List<Trip>> getTripsBetween(
+    String parentStationA,
+    String parentStationB,
+  ) async {
     final now = DateTime.now();
+    final today = '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
+    final dayColumn = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'][now.weekday - 1];
 
-    final today = '${now.year}${now.month.toString().padLeft(2,'0')}${now.day.toString().padLeft(2,'0')}';
-
-    final dayColumn = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'][now.weekday - 1];
-
-    final rows = db.select('''
+    final rows = await customSelect('''
       SELECT t.*, depart.depart_time, arrive.arrive_time
-      FROM trips_db.trips t
+      FROM trips t
       JOIN (
-        SELECT service_id FROM cal_db.calendar
+        SELECT service_id FROM calendar
         WHERE $dayColumn = 1
           AND start_date <= ?
           AND end_date   >= ?
         UNION
-        SELECT service_id FROM cal_dates_db.calendar_dates
+        SELECT service_id FROM calendar_dates
         WHERE date = ? AND exception_type = 1
       ) svc ON svc.service_id = t.service_id
       JOIN (
         SELECT trip_id, MIN(departure_time) AS depart_time
-        FROM st_db.stop_times
+        FROM stop_times
         WHERE stop_id IN (SELECT stop_id FROM stops WHERE parent_station = ?)
         GROUP BY trip_id
       ) depart ON depart.trip_id = t.trip_id
       JOIN (
         SELECT trip_id, MIN(arrival_time) AS arrive_time
-        FROM st_db.stop_times
+        FROM stop_times
         WHERE stop_id IN (SELECT stop_id FROM stops WHERE parent_station = ?)
         GROUP BY trip_id
       ) arrive ON arrive.trip_id = t.trip_id
       WHERE depart.depart_time < arrive.arrive_time
         AND t.service_id NOT IN (
-          SELECT service_id FROM cal_dates_db.calendar_dates
+          SELECT service_id FROM calendar_dates
           WHERE date = ? AND exception_type = 2
         )
       ORDER BY depart.depart_time
-    ''', [today, today, today, parentStationA, parentStationB, today]);
-    return rows.map(Trip.fromRow).toList();
-  }
-  Future<List<Stop>> getTripStops(String tripId, {String? fromParent, String? toParent}) async {
-    final db = await _database;
+    ''', variables: [
+      Variable(today), Variable(today), Variable(today),
+      Variable(parentStationA), Variable(parentStationB),
+      Variable(today),
+    ]).get();
 
-    final rows = db.select('''
+    return rows.map((r) => Trip.fromRow(r.data)).toList();
+  }
+
+  Future<List<Stop>> getTripStops(String tripId) async {
+    final rows = await customSelect('''
       SELECT
         st.stop_sequence,
         st.arrival_time,
@@ -135,22 +132,17 @@ class StationDB {
         s.stop_lat,
         s.stop_lon,
         s.parent_station
-      FROM st_db.stop_times st
+      FROM stop_times st
       JOIN stops s ON s.stop_id = st.stop_id
       WHERE st.trip_id = ?
       ORDER BY st.stop_sequence
-    ''', [tripId]);
+    ''', variables: [Variable(tripId)]).get();
 
-    return rows.map(Stop.fromRow).toList();
+    return rows.map((r) => Stop.fromRow(r.data)).toList();
   }
-  // Future<Station?> getStop(String stopId) async {
-  //   final db   = await _database;
-  //   final rows = await db.select('stops', where: 'stop_id = ?', whereArgs: [stopId]);
-  //   return rows.isEmpty ? null : Station.fromRow(rows.first);
-  // }
 
   Future<void> close() async {
-    _db?.dispose();
-    _db = null;
+    await _instance?.close();
+    _instance = null;
   }
 }
