@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:tripview_2/data/databases/station_db.dart';
 
 class GtfsVersion {
   final int version;
@@ -81,8 +80,6 @@ class Server {
     await File(tmpDbPath).rename(dbPath);
     await File(versionPath).writeAsString(jsonEncode(remote.toJson()), flush: true);
     await File(tmpGzPath).delete();
-
-    await StationDB.init();
     onProgress?.call(1.0);
   }
 }

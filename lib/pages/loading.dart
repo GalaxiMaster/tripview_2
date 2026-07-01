@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tripview_2/data/databases/station_db.dart';
 import 'package:tripview_2/data/server_data.dart';
 
 class LoadingPage extends StatefulWidget {
@@ -28,6 +29,8 @@ class LoadingPageState extends State<LoadingPage> {
           if (mounted) setState(() => progress = p);
         });
       }
+      setState(() { hasError = false; status = 'Initialising database...'; progress = null; });
+      await StationDB.init();
       if (mounted) Navigator.pushReplacementNamed(context, '/home');
     } catch (e, st) {
       debugPrint('Error loading data: $e\n$st');
