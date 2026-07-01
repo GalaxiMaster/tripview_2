@@ -13,24 +13,24 @@ class HomePage extends StatefulWidget {
 class HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => ChooseRoute()),
-                );
-              },
-              child: Text('New Trip'),
+    return Scaffold(
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => ChooseRoute()),
+                  );
+                },
+                child: Text('New Trip'),
+              ),
             ),
-          ),
-          Expanded(
-            child: StreamBuilder<List<UserTrip>>(
+            StreamBuilder<List<UserTrip>>(
               stream: SavedTrips.instance.watchSavedTrips(),
               builder: (context, snapshot) {
                 final savedTrips = snapshot.data;
@@ -38,29 +38,31 @@ class HomePageState extends State<HomePage> {
                 if (savedTrips == null || savedTrips.isEmpty) {
                   return SizedBox.shrink();
                 }
-                return ListView.builder(
-                  itemCount: savedTrips.length,
-                  itemBuilder: (context, index) {
-                    final UserTrip trip = savedTrips[index];
-                    return GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => TripList(
-                              trip: trip
+                return Expanded(
+                  child: ListView.builder(
+                    itemCount: savedTrips.length,
+                    itemBuilder: (context, index) {
+                      final UserTrip trip = savedTrips[index];
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => TripList(
+                                trip: trip
+                              )
                             )
-                          )
-                        );
-                      },
-                      child: Text('${trip.start!.stopName} -> ${trip.end!.stopName}'),
-                    );
-                  }
+                          );
+                        },
+                        child: Text('${trip.start!.stopName} -> ${trip.end!.stopName}'),
+                      );
+                    }
+                  ),
                 );
               }
-            ),
-          )
-        ],
+            )
+          ],
+        ),
       ),
     );
   }

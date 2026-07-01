@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:isolate';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path/path.dart';
@@ -8,8 +7,6 @@ import 'package:tripview_2/data/models/journey.dart';
 import 'package:tripview_2/data/models/station.dart';
 import 'package:tripview_2/data/models/stop.dart';
 import 'package:tripview_2/data/models/trip.dart';
-import 'package:tripview_2/tools.dart';
-
 part 'station_db.g.dart';
 
 @DriftDatabase()
@@ -24,16 +21,10 @@ class StationDB extends _$StationDB {
 
   static Future<void> init() async {
     if (_instance != null) return;
+
     final dir = await getApplicationSupportDirectory();
     final dbPath = join(dir.path, 'gtfs.db');
-
-    if (true) { // !await File(dbPath).exists()
-      final bytes = await decompressGZip('gtfs.db');
-      await Isolate.run(() async {
-        await File(dbPath).writeAsBytes(bytes, flush: true);
-      });
-    }
-
+    
     _instance = StationDB._(
       NativeDatabase.createInBackground(
         File(dbPath),

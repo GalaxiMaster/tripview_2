@@ -15,6 +15,7 @@ dependencies:
   http: ^1.6.0
   drift: ^2.31.0
   sqlite3: ^3.3.3
+  dio: ^5.10.0
 
 dev_dependencies:
   flutter_test:
@@ -25,5 +26,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  assets:
-    - assets/gtfs.db.gz
+  # assets:
+  #   - assets/gtfs.db.gz
+  #   - assets/gtfs_version.json
