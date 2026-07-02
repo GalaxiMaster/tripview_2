@@ -11,6 +11,6 @@ class Journey {
 
   bool get isDirect => legs.length == 1;
   int get transfers => legs.length - 1;
-  String get departTime => legs.first.departTime;
-  String get arriveTime => legs.last.arriveTime;
+  int get departTime => legs.first.departTime;
+  int get arriveTime => legs.last.arriveTime;
 }

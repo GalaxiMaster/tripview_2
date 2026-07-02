@@ -4,6 +4,7 @@ import 'package:tripview_2/data/databases/station_db.dart';
 import 'package:tripview_2/data/models/journey.dart';
 import 'package:tripview_2/data/models/trip.dart';
 import 'package:tripview_2/data/realtime.dart';
+import 'package:tripview_2/tools.dart';
 
 class TripList extends StatefulWidget {
   final UserTrip trip;
@@ -31,10 +32,8 @@ class TripListState extends State<TripList> {
     tripsFuture = StationDB.instance.getJourneysBetween(widget.trip.start!.stopId, widget.trip.end!.stopId);
     final trips = await tripsFuture;
     _firstFutureIndex = trips.indexWhere((trip) {
-      final parts = trip.departTime.split(':');
-      final h = int.parse(parts[0]);
-      final m = int.parse(parts[1]);
-      return h > now.hour || (h == now.hour && m >= now.minute);
+      final nowSecs = now.hour * 3600 + now.minute * 60;
+      return trip.departTime >= nowSecs;
     });
 
     _controller = ScrollController(
@@ -95,7 +94,7 @@ class TripListState extends State<TripList> {
             itemBuilder: (context, index) {
               final trip = trips[index];
           
-              final parts = trip.departTime.split(':');
+              final parts = formatGtfsSecs(trip.departTime).split(':');
               final h = int.parse(parts[0]);
               final m = int.parse(parts[1]);
               final diff = (h*60 - now.hour*60 + m - now.minute);
@@ -124,11 +123,11 @@ class TripListState extends State<TripList> {
                           spacing: 20,
                           children: [
                             Text(
-                              trip.departTime,
+                              formatGtfsSecs(trip.departTime),
                               style: TextStyle(color: isPast ? Colors.grey : null),
                             ),
                             Text(
-                              trip.arriveTime,
+                              formatGtfsSecs(trip.arriveTime),
                               style: TextStyle(color: isPast ? Colors.grey : null),
                             ),
                           ],

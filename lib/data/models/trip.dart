@@ -42,8 +42,8 @@ class Trip {
   final String routeDirection;
   final String? tripNote;
   final String? bikesAllowed;
-  final String departTime;
-  final String arriveTime;
+  final int departTime;
+  final int arriveTime;
 
   Trip({
     required this.routeId,
@@ -74,8 +74,8 @@ class Trip {
       routeDirection: row['route_direction'],
       tripNote: row['trip_note'],
       bikesAllowed: row['bikes_allowed'],
-      departTime: row['depart_time'],
-      arriveTime: row['arrive_time'],
+      departTime: row['departure_secs'],
+      arriveTime: row['arrival_secs'],
     );
   }
 }
